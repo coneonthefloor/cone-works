@@ -41,27 +41,37 @@ export default class Rect {
   public draw(context: CanvasRenderingContext2D, options = new DrawOptions()) {
     context.save()
 
-    if (options.origin !== undefined && options.origin !== DrawOrigin.BOTTOM_RIGHT) {
-      const pos = this.getPositionFromOrigin(options.origin)
-      context.translate(pos.x, pos.y)
-    } else {
-      context.translate(this.pos.x, this.pos.y)
-    }
+    this.applyOrigin(context, options.origin)
 
     context.beginPath()
     context.rect(0, 0, this.width, this.height)
     context.closePath()
 
-    if (options.fill) {
-      context.fillStyle = options.fill
-      context.fill()
-    }
-
-    if (options.stroke) {
-      context.strokeStyle = options.stroke
-      context.stroke()
-    }
+    this.applyFill(context, options.fill)
+    this.applyStroke(context, options.stroke)
 
     context.restore()
+  }
+
+  protected applyOrigin(context: CanvasRenderingContext2D, origin?: DrawOrigin) {
+    let pos = this.pos
+    
+    if (origin !== undefined && origin !== DrawOrigin.BOTTOM_RIGHT) {
+      pos = this.getPositionFromOrigin(origin)
+    }
+
+    context.translate(pos.x, pos.y)
+  }
+
+  protected applyFill(context: CanvasRenderingContext2D, fill?: string) {
+    if (!fill) return
+    context.fillStyle = fill
+    context.fill()
+  }
+
+  protected applyStroke(context: CanvasRenderingContext2D, stroke?: string) {
+    if (!stroke) return
+    context.strokeStyle = stroke
+    context.stroke()
   }
 }
