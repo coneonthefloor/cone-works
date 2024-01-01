@@ -41,24 +41,6 @@ window.addEventListener("keyup", (e) => (keys[e.key] = false));
 window.addEventListener("keydown", (e) => (keys[e.key] = true));
 const isKeyDown = (key) => keys[key];
 
-const draw = (entity, ctx, cb) => {
-	ctx.save();
-	ctx.translate(entity.x, entity.y);
-	ctx.rotate(entity.rotation);
-	ctx.scale(entity.scaleX, entity.scaleY);
-	ctx.lineWidth = entity.lineWidth;
-	ctx.fillStyle = entity.fillColor;
-	ctx.strokeStyle = entity.strokeColor;
-
-	cb(ctx);
-
-	ctx.fill();
-	if (entity.lineWidth > 0) {
-		ctx.stroke();
-	}
-	ctx.restore();
-};
-
 class Loop {
 	active = false;
 	previousTime = 0;
@@ -115,11 +97,23 @@ const rect = () => ({
 	...drawable(),
 
 	draw(ctx) {
-		draw(this, ctx, (ctx) => {
-			ctx.beginPath();
-			ctx.rect(0, 0, this.width, this.height);
-			ctx.closePath();
-		});
+		ctx.save();
+		ctx.translate(this.x, this.y);
+		ctx.rotate(this.rotation);
+		ctx.scale(this.scaleX, this.scaleY);
+		ctx.lineWidth = this.lineWidth;
+		ctx.fillStyle = this.fillColor;
+		ctx.strokeStyle = this.strokeColor;
+
+		ctx.beginPath();
+		ctx.rect(0, 0, this.width, this.height);
+		ctx.closePath();
+
+		ctx.fill();
+		if (this.lineWidth > 0) {
+			ctx.stroke();
+		}
+		ctx.restore();
 	},
 });
 
@@ -147,6 +141,14 @@ const PaddleComponent = () => ({
 		this.score += 1;
 	},
 
+	keepInScreen(screenHeight) {
+		if (this.y < 0) {
+			this.setY(0);
+		} else if (this.y + this.height > screenHeight) {
+			this.setY(screenHeight - this.height);
+		}
+	},
+
 	reset(y) {
 		this.setY(y).setScore(0);
 	},
@@ -170,75 +172,85 @@ const rightPaddle = entity()
 	.setWidth(20)
 	.setHeight(100);
 
+const BallComponent = () => ({
+	vx: 0,
+	vy: 0,
+	serveCount: 0,
+	speed: 200,
+	speedIncrement: 20,
+	currentSpeed: 200,
+
+	incrementSpeed() {
+		this.currentSpeed += this.speedIncrement;
+	},
+
+	serve() {
+		if (this.serveCount % 2 === 0) {
+			this.setVx(this.speed);
+		} else {
+			this.setVx(-this.speed);
+		}
+
+		this.bounce();
+		this.setServeCount(this.serveCount + 1);
+	},
+
+	bounce() {
+		if (Math.random() > 0.5) {
+			this.setVy(this.speed);
+		} else {
+			this.setVy(-this.speed);
+		}
+	},
+
+	update(dt) {
+		this.setX(this.x + this.vx * dt).setY(this.y + this.vy * dt);
+	},
+
+	reset() {
+		this.setX(centerX)
+			.setY(centerY)
+			.setVx(0)
+			.setVy(0)
+			.setServeCount(0)
+			.setCurrentSpeed(this.speed);
+	},
+});
+
 const ball = entity()
 	.add(rect())
-	.add({ vx: 0, vy: 0, speedIncrement: 20, currentSpeed: 200, speed: 200 })
 	.setFillColor("green")
 	.setX(centerX)
 	.setY(centerY)
 	.setWidth(10)
 	.setHeight(10)
-	.add({
-		serveCount: 0,
-		incrementSpeed() {
-			this.currentSpeed += this.speedIncrement;
-		},
-		serve() {
-			if (this.serveCount % 2 === 0) {
-				this.setVx(this.speed);
-			} else {
-				this.setVx(-this.speed);
-			}
+	.add(BallComponent());
 
-			this.bounce();
-			this.setServeCount(this.serveCount + 1);
-		},
-		bounce() {
-			if (Math.random() > 0.5) {
-				this.setVy(this.speed);
-			} else {
-				this.setVy(-this.speed);
-			}
-		},
-		reset() {
-			this.setX(centerX)
-				.setY(centerY)
-				.setVx(0)
-				.setVy(0)
-				.setServeCount(0)
-				.setCurrentSpeed(this.speed);
-		},
-	});
+const ScoreComponent = () => ({
+	font: "monospace",
+	fontSize: "30px",
+	text: "",
+
+	update(leftPaddle, rightPaddle) {
+		this.text = leftPaddle.score + " : " + rightPaddle.score;
+	},
+
+	draw(ctx) {
+		ctx.save();
+		ctx.translate(this.x, this.y);
+		ctx.fillStyle = this.fillColor;
+		ctx.font = this.fontSize + " " + this.font;
+		const textWidth = ctx.measureText(this.text).width;
+		ctx.fillText(this.text, -textWidth / 2, 0);
+		ctx.restore();
+	},
+});
 
 const score = entity()
 	.add(drawable())
 	.setX(screenWidth / 2)
 	.setY(50)
-	.add({
-		font: "monospace",
-		fontSize: "30px",
-		text: "",
-		update(leftPaddle, rightPaddle) {
-			this.text = leftPaddle.score + " : " + rightPaddle.score;
-		},
-		draw(ctx) {
-			draw(this, ctx, (ctx) => {
-				ctx.font = this.fontSize + " " + this.font;
-				const textWidth = ctx.measureText(this.text).width;
-				ctx.beginPath();
-				ctx.fillText(this.text, -textWidth / 2, 0);
-				ctx.closePath();
-			});
-		},
-	});
-
-const keepPaddleInScreen = (paddle, screenHeight) => {
-	if (paddle.y < 0) {
-		paddle.setY(0);
-	} else if (paddle.y + paddle.height > screenHeight) {
-		paddle.setY(screenHeight - paddle.height);
-	}
-};
+	.add(ScoreComponent());
 
 const checkRectCollision = (rectA, rectB) => {
 	if (rectA.x > rectB.x + rectB.width || rectB.x > rectA.x + rectA.width) {
@@ -250,12 +262,6 @@ const checkRectCollision = (rectA, rectB) => {
 	}
 
 	return true;
-};
-
-const resetGame = () => {
-	ball.reset();
-	leftPaddle.reset(centerY - leftPaddle.height / 2);
-	rightPaddle.reset(centerY - rightPaddle.height / 2);
 };
 
 const gameLoop = loop()
@@ -270,32 +276,35 @@ const gameLoop = loop()
 			leftPaddle.setY(leftPaddle.y + leftPaddle.speed);
 		}
 
-		keepPaddleInScreen(leftPaddle, screenHeight);
-		keepPaddleInScreen(rightPaddle, screenHeight);
-
+		// serve ball if stopped
 		if (ball.vx === 0) {
 			ball.serve();
 			score.update(leftPaddle, rightPaddle);
 		}
 
+		// ball exits screen to right
 		if (ball.x - ball.width > screenWidth) {
 			leftPaddle.incrementScore();
 			ball.reset();
 		}
 
+		// ball exits screen to left
 		if (ball.x + ball.width < 0) {
 			rightPaddle.incrementScore();
 			ball.reset();
 		}
 
+		// ball hits top of screen
 		if (ball.y < 0) {
 			ball.setVy(ball.currentSpeed);
 		}
 
+		// ball hits bottom of screen
 		if (ball.y + ball.height > screenHeight) {
 			ball.setVy(-ball.currentSpeed);
 		}
 
+		// ball traveling right
 		if (ball.vx > 0) {
 			if (checkRectCollision(ball, rightPaddle)) {
 				ball.setVx(-ball.currentSpeed);
@@ -317,6 +326,7 @@ const gameLoop = loop()
 				rightPaddle.setY(rightPaddle.y - rightPaddle.speed);
 			}
 		} else {
+			// ball traveling left
 			if (checkRectCollision(ball, leftPaddle)) {
 				ball.setVx(ball.currentSpeed);
 				ball.incrementSpeed();
@@ -332,17 +342,23 @@ const gameLoop = loop()
 			}
 		}
 
-		ball.setX(ball.x + ball.vx * deltaTime);
-		ball.setY(ball.y + ball.vy * deltaTime);
+		// update ball position
+		ball.update(deltaTime);
 
-		// end game on when q pressed
+		// prevent paddles from leaving exiting screen
+		leftPaddle.keepInScreen(screenHeight);
+		rightPaddle.keepInScreen(screenHeight);
+
+		// end game when q pressed
 		if (isKeyDown("q")) {
 			loop.end();
 		}
 
 		// restart game when r pressed
 		if (isKeyDown("r")) {
-			resetGame();
+			ball.reset();
+			leftPaddle.reset(centerY - leftPaddle.height / 2);
+			rightPaddle.reset(centerY - rightPaddle.height / 2);
 		}
 
 		/* DRAW
