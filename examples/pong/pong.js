@@ -1,121 +1,5 @@
-/* Proxy
------------------------------------------------------------------*/
-const camelize = (str) =>
-	str
-		.replace(/(?:^\w|[A-Z]|\b\w)/g, (w, i) =>
-			!i ? w.toLowerCase() : w.toUpperCase(),
-		)
-		.replace(/\s+/g, "");
-
-const proxify = (obj) => {
-	return new Proxy(obj, {
-		get(target, name, receiver) {
-			if (!Reflect.has(target, name)) {
-				if (name.startsWith("get")) {
-					let originalProp = camelize(name.replace("get", ""));
-					if (Reflect.has(target, originalProp)) {
-						return () =>
-							Reflect.get(target, originalProp, receiver);
-					}
-				}
-				if (name.startsWith("set")) {
-					let originalProp = camelize(name.replace("set", ""));
-					if (Reflect.has(target, originalProp)) {
-						return (value) => {
-							Reflect.set(target, originalProp, value);
-							return receiver;
-						};
-					}
-				}
-				return undefined;
-			}
-			return Reflect.get(target, name, receiver);
-		},
-	});
-};
-
-/* Lib
------------------------------------------------------------------*/
-const keys = {};
-window.addEventListener("keyup", (e) => (keys[e.key] = false));
-window.addEventListener("keydown", (e) => (keys[e.key] = true));
-const isKeyDown = (key) => keys[key];
-
-class Loop {
-	active = false;
-	previousTime = 0;
-	callback = (deltaTime, loop) => {};
-
-	start() {
-		this.active = true;
-		this.loop();
-	}
-
-	loop(currentTime = 0) {
-		currentTime *= 0.001;
-		const deltaTime = currentTime - this.previousTime;
-		this.previousTime = currentTime;
-		if (this.active) {
-			this.callback(deltaTime, this);
-			requestAnimationFrame(this.loop.bind(this));
-		}
-	}
-
-	end() {
-		this.active = false;
-	}
-}
-
-class Entity {
-	add(component) {
-		return Object.assign(this, component);
-	}
-}
-
-const loop = () => proxify(new Loop());
-const entity = () => proxify(new Entity());
-
-const point = () => ({
-	x: 0,
-	y: 0,
-});
-
-const drawable = () => ({
-	...point(),
-
-	lineWidth: 0,
-	scaleX: 1,
-	scaleY: 1,
-	fillColor: "white",
-	strokeColor: "white",
-	rotation: 0,
-	width: 0,
-	height: 0,
-});
-
-const rect = () => ({
-	...drawable(),
-
-	draw(ctx) {
-		ctx.save();
-		ctx.translate(this.x, this.y);
-		ctx.rotate(this.rotation);
-		ctx.scale(this.scaleX, this.scaleY);
-		ctx.lineWidth = this.lineWidth;
-		ctx.fillStyle = this.fillColor;
-		ctx.strokeStyle = this.strokeColor;
-
-		ctx.beginPath();
-		ctx.rect(0, 0, this.width, this.height);
-		ctx.closePath();
-
-		ctx.fill();
-		if (this.lineWidth > 0) {
-			ctx.stroke();
-		}
-		ctx.restore();
-	},
-});
+import { entity, rect, loop, drawable } from "/lib/cone-works.js";
+import { isKeyDown } from "/lib/keys.js";
 
 /* Game
 -----------------------------------------------------------------*/
@@ -219,12 +103,12 @@ const BallComponent = () => ({
 
 const ball = entity()
 	.add(rect())
+	.add(BallComponent())
 	.setFillColor("green")
 	.setX(centerX)
 	.setY(centerY)
 	.setWidth(10)
-	.setHeight(10)
-	.add(BallComponent());
+	.setHeight(10);
 
 const ScoreComponent = () => ({
 	font: "monospace",
@@ -248,24 +132,12 @@ const ScoreComponent = () => ({
 
 const score = entity()
 	.add(drawable())
+	.add(ScoreComponent())
 	.setX(screenWidth / 2)
-	.setY(50)
-	.add(ScoreComponent());
-
-const checkRectCollision = (rectA, rectB) => {
-	if (rectA.x > rectB.x + rectB.width || rectB.x > rectA.x + rectA.width) {
-		return false;
-	}
-
-	if (rectA.y > rectB.y + rectB.height || rectB.y > rectA.y + rectA.height) {
-		return false;
-	}
-
-	return true;
-};
+	.setY(50);
 
 const gameLoop = loop()
-	.setCallback((deltaTime, loop) => {
+	.setCallback((dt, loop) => {
 		/* Update
 		-----------------------------------------------------------------*/
 		if (isKeyDown("ArrowUp")) {
@@ -306,7 +178,7 @@ const gameLoop = loop()
 
 		// ball traveling right
 		if (ball.vx > 0) {
-			if (checkRectCollision(ball, rightPaddle)) {
+			if (ball.overlaps(rightPaddle)) {
 				ball.setVx(-ball.currentSpeed);
 				ball.incrementSpeed();
 				ball.bounce();
@@ -327,7 +199,7 @@ const gameLoop = loop()
 			}
 		} else {
 			// ball traveling left
-			if (checkRectCollision(ball, leftPaddle)) {
+			if (ball.overlaps(leftPaddle)) {
 				ball.setVx(ball.currentSpeed);
 				ball.incrementSpeed();
 				ball.bounce();
@@ -343,7 +215,7 @@ const gameLoop = loop()
 		}
 
 		// update ball position
-		ball.update(deltaTime);
+		ball.update(dt);
 
 		// prevent paddles from leaving exiting screen
 		leftPaddle.keepInScreen(screenHeight);
