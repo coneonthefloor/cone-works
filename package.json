@@ -1,0 +1,20 @@
+{
+  "name": "cone-works",
+  "version": "0.1.0",
+  "description": "A canvas rendering library.",
+  "main": "./dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "canvas",
+    "rendering",
+    "2d",
+    "gamedev"
+  ],
+  "author": "Brian Douglas <briandgls92@gmail.com>",
+  "license": "ISC",
+  "devDependencies": {
+    "serve": "^14.2.1"
+  }
+}
