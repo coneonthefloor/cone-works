@@ -17,6 +17,12 @@ const background = entity()
 	.setHeight(screenHeight)
 	.setFillColor("black");
 
+const centerLine = entity()
+	.add(rect())
+	.setWidth(2)
+	.setHeight(screenHeight)
+	.setX(centerX - 1);
+
 const PaddleComponent = () => ({
 	score: 0,
 	speed: 4,
@@ -41,7 +47,6 @@ const PaddleComponent = () => ({
 const leftPaddle = entity()
 	.add(PaddleComponent())
 	.add(rect())
-	.setFillColor("blue")
 	.setX(20)
 	.setY(centerY - 50)
 	.setWidth(20)
@@ -50,7 +55,6 @@ const leftPaddle = entity()
 const rightPaddle = entity()
 	.add(PaddleComponent())
 	.add(rect())
-	.setFillColor("red")
 	.setX(screenWidth - 40)
 	.setY(centerY - 50)
 	.setWidth(20)
@@ -104,7 +108,6 @@ const BallComponent = () => ({
 const ball = entity()
 	.add(rect())
 	.add(BallComponent())
-	.setFillColor("green")
 	.setX(centerX)
 	.setY(centerY)
 	.setWidth(10)
@@ -116,7 +119,7 @@ const ScoreComponent = () => ({
 	text: "",
 
 	update(leftPaddle, rightPaddle) {
-		this.text = leftPaddle.score + " : " + rightPaddle.score;
+		this.text = leftPaddle.score + "  " + rightPaddle.score;
 	},
 
 	draw(ctx) {
@@ -236,6 +239,7 @@ const gameLoop = loop()
 		/* DRAW
 		-----------------------------------------------------------------*/
 		background.draw(ctx);
+		centerLine.draw(ctx);
 		score.draw(ctx);
 		leftPaddle.draw(ctx);
 		rightPaddle.draw(ctx);
